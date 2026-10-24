@@ -7,69 +7,108 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # Page Configuration
 st.set_page_config(
-    page_title="AI Resume & Skill Gap Analyzer",
-    page_icon="🎯",
+    page_title="AI Smart Resume & ATS Recruiter System",
+    page_icon="⚡",
     layout="wide"
 )
 
-# Custom Styling
+# Modern Colorful CSS & Smooth Animations
 st.markdown("""
 <style>
+    .main-title {
+        background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2.2rem !important;
+        font-weight: 800;
+        margin-bottom: 0px;
+    }
     .metric-card {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        padding: 16px;
-        border-radius: 10px;
+        background: linear-gradient(145deg, #ffffff, #f1f5f9);
+        border: 1px solid #cbd5e1;
+        padding: 18px 12px;
+        border-radius: 12px;
         text-align: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .skill-badge-found {
-        display: inline-block;
-        background-color: #dcfce7;
-        color: #166534;
-        padding: 4px 10px;
-        margin: 3px;
-        border-radius: 12px;
-        font-weight: 600;
-        font-size: 12px;
+    .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(79, 70, 229, 0.16);
     }
-    .skill-badge-missing {
+    .metric-num {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #1e293b;
+    }
+    .company-box {
+        background: #f8fafc;
+        border-left: 5px solid #06b6d4;
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-bottom: 18px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .badge {
         display: inline-block;
-        background-color: #fee2e2;
-        color: #991b1b;
-        padding: 4px 10px;
-        margin: 3px;
-        border-radius: 12px;
+        padding: 5px 12px;
+        margin: 4px;
+        border-radius: 20px;
         font-weight: 600;
-        font-size: 12px;
+        font-size: 13px;
+        transition: transform 0.15s ease-in-out;
+    }
+    .badge:hover {
+        transform: scale(1.05);
+    }
+    .badge-found {
+        background: #dcfce7;
+        color: #15803d;
+        border: 1px solid #86efac;
+    }
+    .badge-missing {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+    .badge-req {
+        background: #e0e7ff;
+        color: #3730a3;
+        border: 1px solid #c7d2fe;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Domain Benchmarks Database
-JOB_BENCHMARKS = {
-    "Python Developer": {
-        "description": "Python developer experienced in Django, Flask, REST APIs, SQL, Git, Docker, OOP concepts, Linux and unit testing.",
-        "skills": ["python", "django", "flask", "sql", "git", "rest api", "docker", "oops", "linux"],
-        "roadmap": "Focus on backend architecture, building RESTful APIs, database ORM queries, and Docker containerization."
-    },
-    "Data Analyst": {
-        "description": "Data analyst skilled in Python, SQL, Excel, Pandas, NumPy, Power BI, Tableau, data visualization and statistics.",
-        "skills": ["python", "sql", "excel", "pandas", "numpy", "power bi", "tableau", "statistics", "data visualization"],
-        "roadmap": "Strengthen SQL complex queries, Pandas data wrangling, and interactive dashboards in Power BI."
-    },
-    "Web Developer (Full Stack)": {
-        "description": "Full stack web developer with expertise in HTML, CSS, JavaScript, React, Node.js, Express, MongoDB and Git.",
-        "skills": ["html", "css", "javascript", "react", "node.js", "mongodb", "git", "bootstrap", "tailwind"],
-        "roadmap": "Deepen React state management, master backend CRUD APIs with Node/Express, and build full stack projects."
-    },
-    "Java Developer": {
-        "description": "Java developer proficient in Core Java, Spring Boot, Hibernate, MySQL, OOP principles, Maven and REST APIs.",
-        "skills": ["java", "spring boot", "hibernate", "sql", "oops", "microservices", "git", "maven", "rest api"],
-        "roadmap": "Master Core Java collections, Spring Boot JPA repositories, and building microservices."
+# Session State for Dynamic Company Requirements
+if "company_benchmarks" not in st.session_state:
+    st.session_state.company_benchmarks = {
+        "Google | Python Backend Engineer": {
+            "company": "Google",
+            "role": "Python Backend Engineer",
+            "description": "Looking for a backend engineer experienced in Python, Django, FastAPI, PostgreSQL, Docker, Git, REST APIs, and Linux architecture.",
+            "skills": ["python", "django", "fastapi", "sql", "docker", "git", "rest api", "linux"],
+            "min_score": 75,
+            "roadmap": "Focus on high-concurrency microservices, async APIs with FastAPI, and Docker deployments."
+        },
+        "Amazon | Python Data Analyst": {
+            "company": "Amazon",
+            "role": "Python Data Analyst",
+            "description": "Seeking analyst skilled in Python, SQL, Pandas, NumPy, Power BI, Statistics, and Data Wrangling.",
+            "skills": ["python", "sql", "pandas", "numpy", "power bi", "statistics", "excel"],
+            "min_score": 70,
+            "roadmap": "Strengthen complex SQL joins/window functions and build executive dashboards using Power BI."
+        },
+        "TCS | Full Stack Web Developer": {
+            "company": "TCS",
+            "role": "Full Stack Web Developer",
+            "description": "Requires expertise in React, Node.js, Express, MongoDB, JavaScript, HTML, CSS, Git, and RESTful APIs.",
+            "skills": ["javascript", "react", "node.js", "mongodb", "express", "html", "css", "git"],
+            "min_score": 65,
+            "roadmap": "Master React hooks/state management and secure JWT authentication backend flows."
+        }
     }
-}
 
-# Function: PDF Text Extraction
+# Helper Functions
 def extract_pdf_text(uploaded_file):
     pdf_reader = PyPDF2.PdfReader(uploaded_file)
     extracted_text = ""
@@ -79,21 +118,18 @@ def extract_pdf_text(uploaded_file):
             extracted_text += page_text + " "
     return extracted_text
 
-# Function: Clean Text
 def clean_text(raw_text):
     text = raw_text.lower()
     text = re.sub(r'[^a-zA-Z0-9\s\+\#\.]', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-# Function: Cosine Similarity Scoring
 def compute_similarity(resume_text, benchmark_text):
     vectorizer = TfidfVectorizer(stop_words='english')
     tfidf_matrix = vectorizer.fit_transform([resume_text, benchmark_text])
     score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
     return round(float(score) * 100, 2)
 
-# Function: Skill Gap Identification
 def analyze_skills(cleaned_text, target_skills):
     detected = []
     missing = []
@@ -103,104 +139,214 @@ def analyze_skills(cleaned_text, target_skills):
             detected.append(skill.upper())
         else:
             missing.append(skill.upper())
-    
-    match_pct = round((len(detected) / len(target_skills)) * 100, 1)
+    match_pct = round((len(detected) / len(target_skills)) * 100, 1) if target_skills else 0.0
     return detected, missing, match_pct
 
-# UI Header
-st.title("🎯 AI-Driven Smart Resume & Skill Gap Analyzer")
-st.markdown("**Automated ATS Screening and Competency Assessment Pipeline**")
-st.write("---")
+# Sidebar Navigation
+st.sidebar.markdown("## 🧭 Navigation Portal")
+user_role = st.sidebar.radio(
+    "Choose Active Workspace:",
+    ["👨‍🎓 Candidate Mode (Screen Resume)", "🏢 Recruiter / Company Mode (Post Requirements)"]
+)
 
-# Sidebar Configuration
-st.sidebar.header("📋 Role Configuration")
-selected_role = st.sidebar.selectbox("Target Job Profile:", list(JOB_BENCHMARKS.keys()))
-role_data = JOB_BENCHMARKS[selected_role]
-
-st.sidebar.markdown(f"**Benchmark Skills:** `{len(role_data['skills'])}` Core Requirements")
 st.sidebar.markdown("---")
-st.sidebar.caption("• PyPDF2 Parser\n• TF-IDF Vectorizer\n• Cosine Similarity Engine")
+st.sidebar.caption(f"**Total Active Job Profiles:** `{len(st.session_state.company_benchmarks)}`")
+st.sidebar.caption("Powered by TF-IDF Vectorizer & Cosine Similarity")
 
-# Main Screen
-col_up, col_demo = st.columns([3, 1])
-with col_up:
-    uploaded_file = st.file_uploader("Upload Applicant Resume (PDF Format)", type=["pdf"])
-with col_demo:
-    st.write("**Quick Test**")
-    use_sample = st.button("Use Sample Resume")
+# HEADER
+st.markdown('<p class="main-title">🎯 AI-Driven Smart Resume & Recruiter ATS Platform</p>', unsafe_allow_html=True)
+st.caption("Multi-Company Requirement Portal & Candidate Gap Analysis Engine")
+st.write("")
 
-resume_raw_text = ""
-if uploaded_file is not None:
-    resume_raw_text = extract_pdf_text(uploaded_file)
-elif use_sample:
-    resume_raw_text = """
-    Ayush Dwivedi - BCA Final Year Student
-    Skills: Python programming, SQL, HTML, CSS, Git, basic Django, Data structures, C language.
-    Projects: Student Management System in Python with SQLite, Portfolio Website.
-    Education: Bachelor of Computer Applications (BCA).
-    """
+# ----------------- 🏢 RECRUITER / COMPANY MODE -----------------
+if user_role == "🏢 Recruiter / Company Mode (Post Requirements)":
+    st.subheader("🏢 Company Requirement Management Portal")
+    st.info("💡 Any company (HR / Technical Lead) can define and post specific job vacancies, required skills, and ATS cut-off criteria here.")
 
-if resume_raw_text:
-    cleaned = clean_text(resume_raw_text)
-    semantic_score = compute_similarity(cleaned, clean_text(role_data["description"]))
-    detected_skills, missing_skills, skill_score = analyze_skills(cleaned, role_data["skills"])
-    overall_ats_score = round((skill_score * 0.7) + (semantic_score * 0.3), 1)
+    with st.form("company_posting_form", clear_on_submit=True):
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            comp_name = st.text_input("🏢 Company Name:", placeholder="e.g., Infosys, Microsoft, Startup XYZ")
+            job_title = st.text_input("💼 Job Title / Role:", placeholder="e.g., Python AI/ML Engineer")
+        with col_c2:
+            min_cutoff = st.slider("🎯 Minimum ATS Cutoff Score (%):", min_value=40, max_value=90, value=70)
+            skills_input = st.text_input(
+                "🔑 Mandatory Tech Stack (comma-separated):",
+                placeholder="e.g., python, tensorflow, scikit-learn, nlp, git"
+            )
 
-    st.success("✅ Document Parsed and Evaluated Successfully!")
+        job_desc = st.text_area(
+            "📝 Detailed Job Description / Scope of Work:",
+            placeholder="Paste complete job overview, expected responsibilities, and qualifications..."
+        )
+        custom_roadmap = st.text_input(
+            "💡 Preparation Tip / Learning Roadmap for Rejected Candidates:",
+            placeholder="e.g., Focus on model evaluation metrics, deep learning architectures, and cloud APIs."
+        )
 
-    # KPI Metrics
-    m1, m2, m3 = st.columns(3)
-    with m1:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Overall ATS Score", f"{overall_ats_score}%")
-        st.caption("Weighted Hybrid Metric")
-        st.markdown('</div>', unsafe_allow_html=True)
+        submit_btn = st.form_submit_button("🚀 Publish & Save Company Requirement")
 
-    with m2:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Core Skill Coverage", f"{skill_score}%")
-        st.caption(f"{len(detected_skills)} of {len(role_data['skills'])} Skills Found")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with m3:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Contextual Relevance", f"{semantic_score}%")
-        st.caption("TF-IDF Vector Cosine Alignment")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.write("")
-    if overall_ats_score >= 70:
-        st.success("🌟 **Strong ATS Fit:** High keyword alignment with target profile.")
-    elif overall_ats_score >= 40:
-        st.warning("⚠️ **Moderate Fit:** Lacks key industry tools.")
-    else:
-        st.error("🚨 **Low Alignment:** Significant skill gaps identified.")
+        if submit_btn:
+            if not comp_name.strip() or not job_title.strip() or not skills_input.strip() or not job_desc.strip():
+                st.error("⚠️ Please fill in all required fields (Company, Title, Skills, Description).")
+            else:
+                profile_key = f"{comp_name.strip()} | {job_title.strip()}"
+                skill_list = [s.strip().lower() for s in skills_input.split(",") if s.strip()]
+                
+                # Save into state
+                st.session_state.company_benchmarks[profile_key] = {
+                    "company": comp_name.strip(),
+                    "role": job_title.strip(),
+                    "description": job_desc.strip(),
+                    "skills": skill_list,
+                    "min_score": min_cutoff,
+                    "roadmap": custom_roadmap.strip() if custom_roadmap.strip() else "Brush up on core tools specified in the company job requirements."
+                }
+                st.success(f"🎉 Successfully posted **{profile_key}**! Candidates can now screen against this requirement in Candidate Mode.")
 
     st.write("---")
+    st.subheader("📋 Currently Active Company Openings")
+    comp_list = []
+    for k, v in st.session_state.company_benchmarks.items():
+        comp_list.append({"Company": v["company"], "Role": v["role"], "Required Skills Count": len(v["skills"]), "Cutoff": f"{v['min_score']}%"})
+    st.dataframe(pd.DataFrame(comp_list), use_container_width=True)
 
-    # Skills Display
-    c_detected, c_missing = st.columns(2)
-    with c_detected:
-        st.subheader(f"✅ Identified Competencies ({len(detected_skills)})")
-        if detected_skills:
-            badges_html = "".join([f'<span class="skill-badge-found">{s}</span>' for s in detected_skills])
-            st.markdown(badges_html, unsafe_allow_html=True)
+# ----------------- 👨‍🎓 CANDIDATE MODE -----------------
+else:
+    st.subheader("🎯 Candidate Evaluation & Gap Analysis")
+    
+    # Select from posted company profiles
+    available_jobs = list(st.session_state.company_benchmarks.keys())
+    selected_job_key = st.selectbox("Select Target Company & Opening to Apply For:", available_jobs)
+    job_data = st.session_state.company_benchmarks[selected_job_key]
+
+    # Show company requirements card
+    st.markdown('<div class="company-box">', unsafe_allow_html=True)
+    st.markdown(f"### 🏢 {job_data['company']} — Requirement Overview")
+    st.write(f"**Target Role:** `{job_data['role']}` | **Required ATS Cutoff:** `{job_data['min_score']}%`")
+    st.caption(f"**Company JD:** {job_data['description']}")
+    
+    badges_req = "".join([f'<span class="badge badge-req">{s.upper()}</span>' for s in job_data["skills"]])
+    st.markdown(f"**Mandatory Competencies:**<br>{badges_req}", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Resume Upload
+    col_up, col_demo = st.columns([3, 1])
+    with col_up:
+        uploaded_file = st.file_uploader("📂 Upload Your Resume (PDF Format)", type=["pdf"])
+    with col_demo:
+        st.write("**Quick Test**")
+        use_sample = st.button("⚡ Test with Sample Resume")
+
+    resume_raw_text = ""
+    if uploaded_file is not None:
+        resume_raw_text = extract_pdf_text(uploaded_file)
+    elif use_sample:
+        resume_raw_text = """
+        Ayush Dwivedi - Software Trainee
+        Technical Skills: Python, SQL, Git, basic Django, Data structures, Regex, REST API.
+        Projects: Student Management System in Python using SQLite, Portfolio Website.
+        Education: Bachelor of Computer Applications (BCA).
+        """
+
+    # Scoring & Gap Analysis
+    if resume_raw_text:
+        with st.spinner("Analyzing semantics, matching company keywords, and calculating ATS fit..."):
+            cleaned = clean_text(resume_raw_text)
+            semantic_score = compute_similarity(cleaned, clean_text(job_data["description"]))
+            detected_skills, missing_skills, skill_score = analyze_skills(cleaned, job_data["skills"])
+            overall_ats_score = round((skill_score * 0.7) + (semantic_score * 0.3), 1)
+
+        st.success("✅ Resume Successfully Screened!")
+
+        # Dynamic KPI Cards
+        m1, m2, m3, m4 = st.columns(4)
+        with m1:
+            st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-num">{overall_ats_score}%</div>
+                <div style="font-weight:700; color:#475569;">Overall ATS Score</div>
+                <small style="color:#64748b;">Hybrid Match</small>
+            </div>
+            ''', unsafe_allow_html=True)
+
+        with m2:
+            st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-num">{skill_score}%</div>
+                <div style="font-weight:700; color:#475569;">Skill Coverage</div>
+                <small style="color:#64748b;">{len(detected_skills)} of {len(job_data['skills'])} Found</small>
+            </div>
+            ''', unsafe_allow_html=True)
+
+        with m3:
+            st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-num">{semantic_score}%</div>
+                <div style="font-weight:700; color:#475569;">Context Relevance</div>
+                <small style="color:#64748b;">TF-IDF Vector Score</small>
+            </div>
+            ''', unsafe_allow_html=True)
+
+        with m4:
+            cutoff_diff = round(overall_ats_score - job_data["min_score"], 1)
+            cutoff_color = "#15803d" if cutoff_diff >= 0 else "#b91c1c"
+            st.markdown(f'''
+            <div class="metric-card">
+                <div class="metric-num" style="color: {cutoff_color};">{job_data['min_score']}%</div>
+                <div style="font-weight:700; color:#475569;">Company Cutoff</div>
+                <small style="color:#64748b;">{'Passed Criteria' if cutoff_diff >= 0 else 'Below Cutoff'}</small>
+            </div>
+            ''', unsafe_allow_html=True)
+
+        st.write("")
+        st.progress(min(int(overall_ats_score), 100))
+
+        # Status Assessment Banner
+        if overall_ats_score >= job_data["min_score"]:
+            st.success(f"🌟 **Shortlisted for {job_data['company']}!** Your resume cleared the company's minimum threshold.")
         else:
-            st.write("No matching domain skills identified.")
+            st.error(f"🚨 **Not Shortlisted:** Candidate scored {overall_ats_score}%, which is below {job_data['company']}'s cutoff of {job_data['min_score']}%.")
 
-    with c_missing:
-        st.subheader(f"❌ Missing Benchmark Skills ({len(missing_skills)})")
-        if missing_skills:
-            badges_html = "".join([f'<span class="skill-badge-missing">{s}</span>' for s in missing_skills])
-            st.markdown(badges_html, unsafe_allow_html=True)
-        else:
-            st.write("All required benchmark skills are present!")
+        st.write("---")
 
-    st.write("---")
+        # Skills Breakdown Cards
+        col_det, col_mis = st.columns(2)
+        with col_det:
+            st.markdown(f"#### ✅ Matched Requirements ({len(detected_skills)})")
+            if detected_skills:
+                badges = "".join([f'<span class="badge badge-found">{s}</span>' for s in detected_skills])
+                st.markdown(badges, unsafe_allow_html=True)
+            else:
+                st.info("No mandatory skills found.")
 
-    # Roadmap & Download
-    st.subheader("💡 Strategic Upskilling Roadmap")
-    st.info(role_data["roadmap"])
+        with col_mis:
+            st.markdown(f"#### ❌ Missing Requirements ({len(missing_skills)})")
+            if missing_skills:
+                badges = "".join([f'<span class="badge badge-missing">{s}</span>' for s in missing_skills])
+                st.markdown(badges, unsafe_allow_html=True)
+            else:
+                st.success("Candidate matches 100% of required competencies!")
 
-    report_text = f"ATS REPORT\\nRole: {selected_role}\\nScore: {overall_ats_score}%\\nDetected: {', '.join(detected_skills)}\\nMissing: {', '.join(missing_skills)}"
-    st.download_button("📥 Download Analysis Report (.txt)", report_text, file_name=f"Report_{selected_role}.txt")
+        st.write("---")
+
+        # Upskilling Roadmap
+        st.markdown(f"#### 💡 Preparation Roadmap for {job_data['company']}")
+        st.info(job_data["roadmap"])
+
+        # Download Report
+        report_data = (
+            f"=== {job_data['company'].upper()} ATS SCREENING REPORT ===\n"
+            f"Target Role: {job_data['role']}\n"
+            f"Candidate Score: {overall_ats_score}% (Cutoff: {job_data['min_score']}%)\n"
+            f"Shortlist Status: {'SHORTLISTED' if overall_ats_score >= job_data['min_score'] else 'REJECTED'}\n\n"
+            f"Matched Skills: {', '.join(detected_skills)}\n"
+            f"Missing Skills: {', '.join(missing_skills)}\n\n"
+            f"Recommended Roadmap: {job_data['roadmap']}\n"
+        )
+        st.download_button(
+            "📥 Download Candidate Screening Report (.txt)",
+            report_data,
+            file_name=f"Report_{job_data['company']}.txt",
+            mime="text/plain"
+        )
