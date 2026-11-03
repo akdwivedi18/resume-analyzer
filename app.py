@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Modern Colorful CSS & Smooth Animations
+# Custom Styling and Animations
 st.markdown("""
 <style>
     .main-title {
@@ -79,9 +79,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Session State for Dynamic Company Requirements
-if "company_benchmarks" not in st.session_state:
-    st.session_state.company_benchmarks = {
+# Global Shared Storage across sessions using Streamlit Cache
+@st.cache_resource
+def get_global_company_database():
+    return {
         "Google | Python Backend Engineer": {
             "company": "Google",
             "role": "Python Backend Engineer",
@@ -108,15 +109,20 @@ if "company_benchmarks" not in st.session_state:
         }
     }
 
-# Helper Functions
+GLOBAL_COMPANIES = get_global_company_database()
+
+# PDF Text Extraction with Scanned/Empty Guardrail
 def extract_pdf_text(uploaded_file):
-    pdf_reader = PyPDF2.PdfReader(uploaded_file)
-    extracted_text = ""
-    for page in pdf_reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            extracted_text += page_text + " "
-    return extracted_text
+    try:
+        pdf_reader = PyPDF2.PdfReader(uploaded_file)
+        extracted_text = ""
+        for page in pdf_reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                extracted_text += page_text + " "
+        return extracted_text.strip()
+    except Exception:
+        return ""
 
 def clean_text(raw_text):
     text = raw_text.lower()
@@ -150,10 +156,10 @@ user_role = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption(f"**Total Active Job Profiles:** `{len(st.session_state.company_benchmarks)}`")
-st.sidebar.caption("Powered by TF-IDF Vectorizer & Cosine Similarity")
+st.sidebar.caption(f"**Total Active Job Openings:** `{len(GLOBAL_COMPANIES)}`")
+st.sidebar.caption("System: Scikit-learn TF-IDF & Vector Similarity")
 
-# HEADER
+# Title Header
 st.markdown('<p class="main-title">🎯 AI-Driven Smart Resume & Recruiter ATS Platform</p>', unsafe_allow_html=True)
 st.caption("Multi-Company Requirement Portal & Candidate Gap Analysis Engine")
 st.write("")
@@ -161,18 +167,18 @@ st.write("")
 # ----------------- 🏢 RECRUITER / COMPANY MODE -----------------
 if user_role == "🏢 Recruiter / Company Mode (Post Requirements)":
     st.subheader("🏢 Company Requirement Management Portal")
-    st.info("💡 Any company (HR / Technical Lead) can define and post specific job vacancies, required skills, and ATS cut-off criteria here.")
+    st.info("💡 HR aur Technical Recruiters yahan nayi vacancies, mandatory tech stack aur minimum cutoff define kar sakte hain.")
 
     with st.form("company_posting_form", clear_on_submit=True):
         col_c1, col_c2 = st.columns(2)
         with col_c1:
-            comp_name = st.text_input("🏢 Company Name:", placeholder="e.g., Infosys, Microsoft, Startup XYZ")
-            job_title = st.text_input("💼 Job Title / Role:", placeholder="e.g., Python AI/ML Engineer")
+            comp_name = st.text_input("🏢 Company Name:", placeholder="e.g., Infosys, Microsoft, Wipro")
+            job_title = st.text_input("💼 Job Title / Role:", placeholder="e.g., Python Backend Engineer")
         with col_c2:
             min_cutoff = st.slider("🎯 Minimum ATS Cutoff Score (%):", min_value=40, max_value=90, value=70)
             skills_input = st.text_input(
                 "🔑 Mandatory Tech Stack (comma-separated):",
-                placeholder="e.g., python, tensorflow, scikit-learn, nlp, git"
+                placeholder="e.g., python, django, rest api, docker, sql"
             )
 
         job_desc = st.text_area(
@@ -180,8 +186,8 @@ if user_role == "🏢 Recruiter / Company Mode (Post Requirements)":
             placeholder="Paste complete job overview, expected responsibilities, and qualifications..."
         )
         custom_roadmap = st.text_input(
-            "💡 Preparation Tip / Learning Roadmap for Rejected Candidates:",
-            placeholder="e.g., Focus on model evaluation metrics, deep learning architectures, and cloud APIs."
+            "💡 Preparation Tip / Learning Roadmap for Candidates:",
+            placeholder="e.g., Focus on microservices architecture, API security, and database indexing."
         )
 
         submit_btn = st.form_submit_button("🚀 Publish & Save Company Requirement")
@@ -193,21 +199,21 @@ if user_role == "🏢 Recruiter / Company Mode (Post Requirements)":
                 profile_key = f"{comp_name.strip()} | {job_title.strip()}"
                 skill_list = [s.strip().lower() for s in skills_input.split(",") if s.strip()]
                 
-                # Save into state
-                st.session_state.company_benchmarks[profile_key] = {
+                # Save into Global Shared Cache
+                GLOBAL_COMPANIES[profile_key] = {
                     "company": comp_name.strip(),
                     "role": job_title.strip(),
                     "description": job_desc.strip(),
                     "skills": skill_list,
                     "min_score": min_cutoff,
-                    "roadmap": custom_roadmap.strip() if custom_roadmap.strip() else "Brush up on core tools specified in the company job requirements."
+                    "roadmap": custom_roadmap.strip() if custom_roadmap.strip() else "Brush up on core competencies required for this role."
                 }
-                st.success(f"🎉 Successfully posted **{profile_key}**! Candidates can now screen against this requirement in Candidate Mode.")
+                st.success(f"🎉 Successfully published **{profile_key}**! Ye opening ab sabhi candidates ke liye live hai.")
 
     st.write("---")
     st.subheader("📋 Currently Active Company Openings")
     comp_list = []
-    for k, v in st.session_state.company_benchmarks.items():
+    for k, v in GLOBAL_COMPANIES.items():
         comp_list.append({"Company": v["company"], "Role": v["role"], "Required Skills Count": len(v["skills"]), "Cutoff": f"{v['min_score']}%"})
     st.dataframe(pd.DataFrame(comp_list), use_container_width=True)
 
@@ -215,10 +221,9 @@ if user_role == "🏢 Recruiter / Company Mode (Post Requirements)":
 else:
     st.subheader("🎯 Candidate Evaluation & Gap Analysis")
     
-    # Select from posted company profiles
-    available_jobs = list(st.session_state.company_benchmarks.keys())
+    available_jobs = list(GLOBAL_COMPANIES.keys())
     selected_job_key = st.selectbox("Select Target Company & Opening to Apply For:", available_jobs)
-    job_data = st.session_state.company_benchmarks[selected_job_key]
+    job_data = GLOBAL_COMPANIES[selected_job_key]
 
     # Show company requirements card
     st.markdown('<div class="company-box">', unsafe_allow_html=True)
@@ -239,8 +244,14 @@ else:
         use_sample = st.button("⚡ Test with Sample Resume")
 
     resume_raw_text = ""
+    is_scanned_pdf = False
+
     if uploaded_file is not None:
-        resume_raw_text = extract_pdf_text(uploaded_file)
+        extracted = extract_pdf_text(uploaded_file)
+        if not extracted or len(extracted) < 15:
+            is_scanned_pdf = True
+        else:
+            resume_raw_text = extracted
     elif use_sample:
         resume_raw_text = """
         Ayush Dwivedi - Software Trainee
@@ -249,8 +260,13 @@ else:
         Education: Bachelor of Computer Applications (BCA).
         """
 
+    # Scanned PDF Warning Banner (Guardrail against prank files)
+    if is_scanned_pdf:
+        st.warning("⚠️ **Notice: No Machine-Readable Text Found in PDF!**")
+        st.info("Aapka PDF file ek image/scanned screenshot lag raha hai. Abhi ke prototype model ke liye please selectable text PDF upload karein. *(Scanned image OCR parsing Major Project 6th Sem mein scheduled hai).*")
+
     # Scoring & Gap Analysis
-    if resume_raw_text:
+    elif resume_raw_text:
         with st.spinner("Analyzing semantics, matching company keywords, and calculating ATS fit..."):
             cleaned = clean_text(resume_raw_text)
             semantic_score = compute_similarity(cleaned, clean_text(job_data["description"]))
@@ -302,9 +318,9 @@ else:
         st.write("")
         st.progress(min(int(overall_ats_score), 100))
 
-        # Status Assessment Banner
+        # Shortlist Decision Banner
         if overall_ats_score >= job_data["min_score"]:
-            st.success(f"🌟 **Shortlisted for {job_data['company']}!** Your resume cleared the company's minimum threshold.")
+            st.success(f"🌟 **Shortlisted for {job_data['company']}!** Your profile cleared the minimum ATS threshold of {job_data['min_score']}%.")
         else:
             st.error(f"🚨 **Not Shortlisted:** Candidate scored {overall_ats_score}%, which is below {job_data['company']}'s cutoff of {job_data['min_score']}%.")
 
@@ -318,7 +334,7 @@ else:
                 badges = "".join([f'<span class="badge badge-found">{s}</span>' for s in detected_skills])
                 st.markdown(badges, unsafe_allow_html=True)
             else:
-                st.info("No mandatory skills found.")
+                st.info("No mandatory skills found in resume.")
 
         with col_mis:
             st.markdown(f"#### ❌ Missing Requirements ({len(missing_skills)})")
